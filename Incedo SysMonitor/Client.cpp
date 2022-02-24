@@ -1,6 +1,7 @@
 #include "sysinteraction.h"
 #include <iostream>
 #include <WS2tcpip.h>
+#include <boost\crc.hpp>
 
 using namespace std;
 
@@ -53,8 +54,17 @@ int SendData(string FileName)
 	// this needs modification to work for client side data fetching. modify as needed.
 	// stored data for passing to the server only one time. further modification can add more robustness
 	char buf[4096];
-	string userinput;
+	string userinput, hash;
+	stringstream checkSum;
+	
 	userinput = si.getFile(FileName);
+	boost::crc_32_type  crc;
+
+	crc.process_bytes(userinput.data(), userinput.size());
+	checkSum << hex << crc.checksum();
+	hash = checkSum.str();
+
+	userinput = userinput + "#" + hash;
 
 	if (userinput.size() > 0)				// make sure the user has typed in something
 	{
