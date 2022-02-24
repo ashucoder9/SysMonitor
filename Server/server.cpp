@@ -4,15 +4,15 @@
 #include <vector>
 #include <mysql.h>
 #include <sstream>
+#include <boost\crc.hpp>
 
 #pragma comment (lib, "ws2_32.lib")
 
 using namespace std;
 
-void updateDB(string data)
+vector<string> dataParser(string data)
 {
-	// Parsing Data into Vector of Strings
-	vector<string> dataStream;
+	vector<string> dataItems;
 	string item = "";
 
 	for (int i = 0; i < data.size(); i++)
@@ -21,11 +21,16 @@ void updateDB(string data)
 			item = item + data[i];
 		else
 		{
-			dataStream.push_back(item);
+			dataItems.push_back(item);
 			item = "";
 		}
 	}
 
+	return dataItems;
+}
+
+void dbConnect(vector<string> dataStream)
+{
 	// Opening DB Connection
 	MYSQL mysql, * connection;
 	MYSQL_RES result;
@@ -33,7 +38,7 @@ void updateDB(string data)
 
 	int nQueryState = 0;
 
-	// Creating Query Stream for passing as String
+	// CReating QUery Stream for passing as String
 	stringstream ss;
 	ss << "insert into test1 values(";
 
@@ -64,6 +69,33 @@ void updateDB(string data)
 	}
 
 	mysql_close(&mysql);
+}
+
+void updateDB(string data)
+{
+	// Parsing Data into Vector of Strings
+	vector<string> dataStream;
+	int hashPosition = data.find("#");
+	string information, hash;
+
+	// Fetching CRC Checksum present as the end of Data
+	information = data.substr(0, hashPosition);
+	hash = data.substr(static_cast<std::basic_string<char, std::char_traits<char>, std::allocator<char>>::size_type>(hashPosition) + 1);
+
+	// Hash verification
+	stringstream checkSum;
+	boost::crc_32_type  crc;
+	crc.process_bytes(information.data(), information.size());
+	checkSum << hex << crc.checksum();
+
+	if (hash != checkSum.str())
+	{
+		cout << "Checksum mismatch...Data Corrupted !!\nAborted the process.\n";
+		return;
+	}
+
+	dataStream = dataParser(information);
+	dbConnect(dataStream);
 }
 
 void main()
